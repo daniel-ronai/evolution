@@ -8,32 +8,37 @@ pygame.init()
 
 DEAD = (0, 0, 0) 
 ALIVE = (0, 255, 128) 
-GRIDLINES = (128, 128, 128) 
+GRIDLINES = (128, 128, 128)
+SEPARATOR = (50, 50, 50)  # Color for separating the 9 grids
 
 WIDTH, HEIGHT = 800, 800
+GRID_COUNT = 3  # 3x3 grid of games
+SEPARATOR_WIDTH = 10  # Width of separator between games
+GAME_SIZE = (WIDTH - (GRID_COUNT + 1) * SEPARATOR_WIDTH) // GRID_COUNT  # Size of each game area
 TILE_SIZE = 5
-GRID_WIDTH = WIDTH // TILE_SIZE
-GRID_HEIGHT = HEIGHT // TILE_SIZE
+GRID_WIDTH = GAME_SIZE // TILE_SIZE
+GRID_HEIGHT = GAME_SIZE // TILE_SIZE
 FPS = 60
 
 screen = pygame.display.set_mode(size=(WIDTH, HEIGHT))
-
 clock = pygame.time.Clock()
 
 def gen(num):
     return set([(random.randrange(0, GRID_HEIGHT), random.randrange(0, GRID_WIDTH)) for _ in range(num)])
 
-def draw_grid(positions):
+def draw_grid(positions, offset_x, offset_y):
     for position in positions:
         col, row = position
-        top_left = (col * TILE_SIZE, row * TILE_SIZE)
+        top_left = (offset_x + col * TILE_SIZE, offset_y + row * TILE_SIZE)
         pygame.draw.rect(screen, ALIVE, (*top_left, TILE_SIZE, TILE_SIZE))
     
     for row in range(GRID_HEIGHT):
-        pygame.draw.line(screen, GRIDLINES, (0, row * TILE_SIZE), (WIDTH, row * TILE_SIZE))
+        y_pos = offset_y + row * TILE_SIZE
+        pygame.draw.line(screen, GRIDLINES, (offset_x, y_pos), (offset_x + GAME_SIZE, y_pos))
     
     for col in range(GRID_WIDTH):
-        pygame.draw.line(screen, GRIDLINES, (col * TILE_SIZE, 0), (col * TILE_SIZE, HEIGHT))
+        x_pos = offset_x + col * TILE_SIZE
+        pygame.draw.line(screen, GRIDLINES, (x_pos, offset_y), (x_pos, offset_y + GAME_SIZE))
     
 def adjust_grid(positions):
     all_neighbors = set()
@@ -61,10 +66,10 @@ def get_neighbors(pos):
     x, y = pos
     neighbors = []
     for dx in [-1, 0, 1]:
-        if x + dx < 0 or x + dx > GRID_WIDTH:
+        if x + dx < 0 or x + dx >= GRID_WIDTH:
             continue
         for dy in [-1, 0, 1]:
-            if y + dy < 0 or y + dy > GRID_HEIGHT:
+            if y + dy < 0 or y + dy >= GRID_HEIGHT:
                 continue
             if dx == 0 and dy == 0:
                 continue
@@ -73,14 +78,38 @@ def get_neighbors(pos):
             
     return neighbors
 
+def get_grid_index(mouse_x, mouse_y):
+    """Returns which of the 9 grids (grid_row, grid_col) the mouse is in, or None if in separator"""
+    for grid_row in range(GRID_COUNT):
+        for grid_col in range(GRID_COUNT):
+            offset_x = SEPARATOR_WIDTH + grid_col * (GAME_SIZE + SEPARATOR_WIDTH)
+            offset_y = SEPARATOR_WIDTH + grid_row * (GAME_SIZE + SEPARATOR_WIDTH)
+            
+            if (offset_x <= mouse_x < offset_x + GAME_SIZE and 
+                offset_y <= mouse_y < offset_y + GAME_SIZE):
+                # Convert to local coordinates
+                local_x = mouse_x - offset_x
+                local_y = mouse_y - offset_y
+                col = local_x // TILE_SIZE
+                row = local_y // TILE_SIZE
+                return (grid_row, grid_col, col, row)
+    
+    return None
+
 def main():
     running = True
-    playing = False
+    playing = True
     count = 0
-    update_freq = 30
+    update_freq = 15
     
-    positions = set()
-    positions = gen(random.randrange(30, 40) * GRID_WIDTH)
+    # Create 9 independent grids
+    grids = [[set() for _ in range(GRID_COUNT)] for _ in range(GRID_COUNT)]
+    
+    # Initialize each grid with random cells
+    for row in range(GRID_COUNT):
+        for col in range(GRID_COUNT):
+            grids[row][col] = gen(random.randrange(30, 40) * GRID_WIDTH)
+    
     while running:
         clock.tick(FPS)
         
@@ -89,39 +118,58 @@ def main():
             
         if count >= update_freq:
             count = 0
-            positions = adjust_grid(positions)
+            # Update all 9 grids independently
+            for row in range(GRID_COUNT):
+                for col in range(GRID_COUNT):
+                    grids[row][col] = adjust_grid(grids[row][col])
             
-        pygame.display.set_caption("Playing" if playing else "Paused")
+        pygame.display.set_caption("Active" if playing else "Paused")
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
             
             if event.type == pygame.MOUSEBUTTONDOWN:
-                x, y = pygame.mouse.get_pos()
-                col = x // TILE_SIZE
-                row = y // TILE_SIZE
-                pos = (col, row)
-                
-                if pos in positions:
-                    positions.remove(pos)
-                else:
-                    positions.add(pos)
+                result = get_grid_index(*pygame.mouse.get_pos())
+                if result:
+                    grid_row, grid_col, col, row = result
+                    pos = (col, row)
+                    
+                    if pos in grids[grid_row][grid_col]:
+                        grids[grid_row][grid_col].remove(pos)
+                    else:
+                        grids[grid_row][grid_col].add(pos)
                     
             if event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     playing = not playing
                     
                 if event.key == pygame.K_c:
-                    positions = set()
+                    for row in range(GRID_COUNT):
+                        for col in range(GRID_COUNT):
+                            grids[row][col] = set()
                     playing = False
                     count = 0
                     
                 if event.key == pygame.K_g:
-                    positions = gen(random.randrange(30, 40) * GRID_WIDTH)
+                    for row in range(GRID_COUNT):
+                        for col in range(GRID_COUNT):
+                            grids[row][col] = gen(random.randrange(30, 40) * GRID_WIDTH)
 
-        screen.fill(DEAD)
-        draw_grid(positions)
+        screen.fill(SEPARATOR)
+        
+        # Draw all 9 grids
+        for grid_row in range(GRID_COUNT):
+            for grid_col in range(GRID_COUNT):
+                offset_x = SEPARATOR_WIDTH + grid_col * (GAME_SIZE + SEPARATOR_WIDTH)
+                offset_y = SEPARATOR_WIDTH + grid_row * (GAME_SIZE + SEPARATOR_WIDTH)
+                
+                # Fill background for this grid
+                pygame.draw.rect(screen, DEAD, (offset_x, offset_y, GAME_SIZE, GAME_SIZE))
+                
+                # Draw this grid
+                draw_grid(grids[grid_row][grid_col], offset_x, offset_y)
+        
         pygame.display.update()
 
     pygame.quit()
