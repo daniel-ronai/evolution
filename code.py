@@ -101,6 +101,7 @@ def main():
     playing = True
     count = 0
     update_freq = 15
+    step = 0
     
     # Create 9 independent grids
     grids = [[set() for _ in range(GRID_COUNT)] for _ in range(GRID_COUNT)]
@@ -118,12 +119,13 @@ def main():
             
         if count >= update_freq:
             count = 0
+            step += 1
             # Update all 9 grids independently
             for row in range(GRID_COUNT):
                 for col in range(GRID_COUNT):
                     grids[row][col] = adjust_grid(grids[row][col])
             
-        pygame.display.set_caption("Active" if playing else "Paused")
+        pygame.display.set_caption(f"Active at step {step}" if playing else f"Paused at step {step}")
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
