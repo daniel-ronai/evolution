@@ -9,12 +9,12 @@ pygame.init()
 DEAD = (0, 0, 0) 
 ALIVE = (0, 255, 128) 
 GRIDLINES = (128, 128, 128)
-SEPARATOR = (50, 50, 50)  # Color for separating the 9 grids
+SEPARATOR = (50, 50, 50)  
 
 WIDTH, HEIGHT = 800, 800
-GRID_COUNT = 3  # 3x3 grid of games
-SEPARATOR_WIDTH = 10  # Width of separator between games
-GAME_SIZE = (WIDTH - (GRID_COUNT + 1) * SEPARATOR_WIDTH) // GRID_COUNT  # Size of each game area
+GRID_COUNT = 3  # 3x3 
+SEPARATOR_WIDTH = 10  
+GAME_SIZE = (WIDTH - (GRID_COUNT + 1) * SEPARATOR_WIDTH) // GRID_COUNT  
 TILE_SIZE = 5
 GRID_WIDTH = GAME_SIZE // TILE_SIZE
 GRID_HEIGHT = GAME_SIZE // TILE_SIZE
@@ -85,13 +85,13 @@ def adjust_grid(positions):
 
     return new_positions
 
-def next_gen(positions, weights):
+def next_gen(positions, weights_):
     new_positions = set()
     all_neighbors = set()
-    a, b, c, d = 0 # NEED PARAMETERS
+    a, b, c, d = 1, 4, 2, 4  # survival [1-3], birth [2-3]
     
     for position in positions:
-        env = get_env(position, weights, positions)
+        env = get_env(position, weights_, positions)
         neighbors = get_neighbors(position)
         all_neighbors.update(neighbors)
         
@@ -99,7 +99,7 @@ def next_gen(positions, weights):
             new_positions.add(position)
             
     for position in all_neighbors:
-        env = get_env(position, weights, positions)
+        env = get_env(position, weights_, positions)
         
         if env in range(c, d):
             new_positions.add(position)
@@ -110,9 +110,6 @@ def get_env(pos, weights, positions):
     x, y = pos
     env = 0
     weight_count = 0
-    
-    if len(weights) == 0:
-        weights = [random.uniform(-1, 1) for i in range(8)]
     
     for dx in [-1, 0, 1]:
         if x + dx < 0 or x + dx >= GRID_WIDTH:
@@ -139,7 +136,7 @@ def get_grid_index(mouse_x, mouse_y):
             
             if (offset_x <= mouse_x < offset_x + GAME_SIZE and 
                 offset_y <= mouse_y < offset_y + GAME_SIZE):
-                # Convert to local coordinates
+                # convert to local coordinates
                 local_x = mouse_x - offset_x
                 local_y = mouse_y - offset_y
                 col = local_x // TILE_SIZE
@@ -148,18 +145,22 @@ def get_grid_index(mouse_x, mouse_y):
     
     return None
 
+def score(positions):
+    return len(positions)
+
 def main():
     running = True
     playing = True
     count = 0
-    update_freq = 10
+    update_freq = 5
     step = 0
     generation = 0
     
-    # Create 9 independent grids
+    # create 9 independent grids with weights
     grids = [[set() for _ in range(GRID_COUNT)] for _ in range(GRID_COUNT)]
+    weights_ = [[random.randint(-1, 2) for _ in range(8)] for _ in range(9)]
     
-    # Initialize each grid with random cells
+    # initialize each grid with random cells and weights
     for row in range(GRID_COUNT):
         for col in range(GRID_COUNT):
             grids[row][col] = gen_cell(random.randrange(2, 6) * GRID_WIDTH)
@@ -167,15 +168,39 @@ def main():
     while running:
         clock.tick(FPS)
         
-        if step >= 20:
+        if step >= 18:
             playing = False
             count = 0
-            # evaluate progress
-            
+            scores = []
+            # evaluate score
+            for row in range(GRID_COUNT):
+                        for col in range(GRID_COUNT):
+                            scores.append(score(grids[row][col]))
+                            
             # implement change
+            slot_list = []
+            ranked = sorted(range(9), key=lambda i: scores[i], reverse=True)
+            slot_list.extend([ranked[0]] * 3)
+            slot_list.extend([ranked[1]] * 2)
+            slot_list.extend([ranked[2]] * 2)
+            slot_list.extend([ranked[3]] * 1)
+            slot_list.extend([ranked[4]] * 1)
+            random.shuffle(slot_list)
             
+            new_weights = []
+            for slot_id in slot_list:
+                new_weights.append(weights_[slot_id].copy())
+            weights_ = new_weights
+            
+            # mutation (1-4 times)
+            for i in range(random.randint(1, 5)):
+                mutating_game = random.randint(0, 8) 
+    
+                for j in range(random.randint(1, 3)):  
+                    weight_index = random.randint(0, 7)  
+                    weights_[mutating_game][weight_index] = random.randint(-1, 2)  
+                
             # initialize next generation
-            new_pos = gen_cell(random.randrange(2, 6) * GRID_WIDTH) # if i want same conditions
             for row in range(GRID_COUNT):
                         for col in range(GRID_COUNT):
                             grids[row][col] = set()
@@ -193,10 +218,13 @@ def main():
         if count >= update_freq:
             count = 0
             step += 1
-            # Update all 9 grids independently
+            
+            # update all 9 grids independently
+            grid_index = 0
             for row in range(GRID_COUNT):
                 for col in range(GRID_COUNT):
-                    grids[row][col] = adjust_grid(grids[row][col])
+                    grids[row][col] = next_gen(grids[row][col], weights_[grid_index])
+                    grid_index += 1
             
         pygame.display.set_caption(f"Active at step {step} (g{generation})" if playing else f"Paused at step {step} (g{generation})")
         
@@ -235,16 +263,16 @@ def main():
 
         screen.fill(SEPARATOR)
         
-        # Draw all 9 grids
+        # draw all 9 grids
         for grid_row in range(GRID_COUNT):
             for grid_col in range(GRID_COUNT):
                 offset_x = SEPARATOR_WIDTH + grid_col * (GAME_SIZE + SEPARATOR_WIDTH)
                 offset_y = SEPARATOR_WIDTH + grid_row * (GAME_SIZE + SEPARATOR_WIDTH)
                 
-                # Fill background for this grid
+                # fill background for this grid
                 pygame.draw.rect(screen, DEAD, (offset_x, offset_y, GAME_SIZE, GAME_SIZE))
                 
-                # Draw this grid
+                # draw this grid
                 draw_grid(grids[grid_row][grid_col], offset_x, offset_y)
         
         pygame.display.update()
