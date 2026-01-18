@@ -26,6 +26,11 @@ clock = pygame.time.Clock()
 def gen(num):
     return set([(random.randrange(0, GRID_HEIGHT), random.randrange(0, GRID_WIDTH)) for _ in range(num)])
 
+def gen_cell(num):
+    cell = set([(random.randrange(0, GRID_HEIGHT // 3), random.randrange(0, GRID_WIDTH // 3)) for _ in range(num)])
+    return set([(x + (GRID_WIDTH//3), y + (GRID_HEIGHT//3)) for x, y in cell])
+        
+
 def draw_grid(positions, offset_x, offset_y):
     for position in positions:
         col, row = position
@@ -100,7 +105,7 @@ def main():
     running = True
     playing = True
     count = 0
-    update_freq = 15
+    update_freq = 10
     step = 0
     
     # Create 9 independent grids
@@ -109,10 +114,29 @@ def main():
     # Initialize each grid with random cells
     for row in range(GRID_COUNT):
         for col in range(GRID_COUNT):
-            grids[row][col] = gen(random.randrange(30, 40) * GRID_WIDTH)
+            grids[row][col] = gen_cell(random.randrange(2, 6) * GRID_WIDTH)
     
     while running:
         clock.tick(FPS)
+        
+        if step >= 20:
+            playing = False
+            count = 0
+            # evaluate progress
+            
+            # implement change
+            
+            # initialize next generation
+            new_pos = gen_cell(random.randrange(2, 6) * GRID_WIDTH) # if i want same conditions
+            for row in range(GRID_COUNT):
+                        for col in range(GRID_COUNT):
+                            grids[row][col] = set()
+            for row in range(GRID_COUNT):
+                for col in range(GRID_COUNT):
+                    grids[row][col] = gen_cell(random.randrange(2, 6) * GRID_WIDTH)
+
+            step = 0
+            playing = True
         
         if playing:
             count += 1
@@ -152,8 +176,10 @@ def main():
                             grids[row][col] = set()
                     playing = False
                     count = 0
+                    step = 0
                     
                 if event.key == pygame.K_g:
+                    step = 0
                     for row in range(GRID_COUNT):
                         for col in range(GRID_COUNT):
                             grids[row][col] = gen(random.randrange(30, 40) * GRID_WIDTH)
