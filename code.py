@@ -29,7 +29,9 @@ def gen(num):
 def gen_cell(num):
     cell = set([(random.randrange(0, GRID_HEIGHT // 3), random.randrange(0, GRID_WIDTH // 3)) for _ in range(num)])
     return set([(x + (GRID_WIDTH//3), y + (GRID_HEIGHT//3)) for x, y in cell])
-        
+
+def score_fitness():
+    pass
 
 def draw_grid(positions, offset_x, offset_y):
     for position in positions:
@@ -44,6 +46,22 @@ def draw_grid(positions, offset_x, offset_y):
     for col in range(GRID_WIDTH):
         x_pos = offset_x + col * TILE_SIZE
         pygame.draw.line(screen, GRIDLINES, (x_pos, offset_y), (x_pos, offset_y + GAME_SIZE))
+        
+def get_neighbors(pos):
+    x, y = pos
+    neighbors = []
+    for dx in [-1, 0, 1]:
+        if x + dx < 0 or x + dx >= GRID_WIDTH:
+            continue
+        for dy in [-1, 0, 1]:
+            if y + dy < 0 or y + dy >= GRID_HEIGHT:
+                continue
+            if dx == 0 and dy == 0:
+                continue
+            
+            neighbors.append((x + dx, y + dy))
+            
+    return neighbors
     
 def adjust_grid(positions):
     all_neighbors = set()
@@ -67,9 +85,35 @@ def adjust_grid(positions):
 
     return new_positions
 
-def get_neighbors(pos):
+def next_gen(positions, weights):
+    new_positions = set()
+    all_neighbors = set()
+    a, b, c, d = 0 # NEED PARAMETERS
+    
+    for position in positions:
+        env = get_env(position, weights, positions)
+        neighbors = get_neighbors(position)
+        all_neighbors.update(neighbors)
+        
+        if env in range(a, b):
+            new_positions.add(position)
+            
+    for position in all_neighbors:
+        env = get_env(position, weights, positions)
+        
+        if env in range(c, d):
+            new_positions.add(position)
+
+    return new_positions
+
+def get_env(pos, weights, positions):
     x, y = pos
-    neighbors = []
+    env = 0
+    weight_count = 0
+    
+    if len(weights) == 0:
+        weights = [random.uniform(-1, 1) for i in range(8)]
+    
     for dx in [-1, 0, 1]:
         if x + dx < 0 or x + dx >= GRID_WIDTH:
             continue
@@ -79,9 +123,12 @@ def get_neighbors(pos):
             if dx == 0 and dy == 0:
                 continue
             
-            neighbors.append((x + dx, y + dy))
+            if (x + dx, y + dy) in positions:
+                env += weights[weight_count]
             
-    return neighbors
+            weight_count += 1
+            
+    return env
 
 def get_grid_index(mouse_x, mouse_y):
     """Returns which of the 9 grids (grid_row, grid_col) the mouse is in, or None if in separator"""
@@ -107,6 +154,7 @@ def main():
     count = 0
     update_freq = 10
     step = 0
+    generation = 0
     
     # Create 9 independent grids
     grids = [[set() for _ in range(GRID_COUNT)] for _ in range(GRID_COUNT)]
@@ -137,6 +185,7 @@ def main():
 
             step = 0
             playing = True
+            generation += 1
         
         if playing:
             count += 1
@@ -149,7 +198,7 @@ def main():
                 for col in range(GRID_COUNT):
                     grids[row][col] = adjust_grid(grids[row][col])
             
-        pygame.display.set_caption(f"Active at step {step}" if playing else f"Paused at step {step}")
+        pygame.display.set_caption(f"Active at step {step} (g{generation})" if playing else f"Paused at step {step} (g{generation})")
         
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
