@@ -30,9 +30,6 @@ def gen_cell(num):
     cell = set([(random.randrange(0, GRID_HEIGHT // 3), random.randrange(0, GRID_WIDTH // 3)) for _ in range(num)])
     return set([(x + (GRID_WIDTH//3), y + (GRID_HEIGHT//3)) for x, y in cell])
 
-def score_fitness():
-    pass
-
 def draw_grid(positions, offset_x, offset_y):
     for position in positions:
         col, row = position
@@ -88,7 +85,7 @@ def adjust_grid(positions):
 def next_gen(positions, weights_):
     new_positions = set()
     all_neighbors = set()
-    a, b, c, d = 1, 4, 2, 4  # survival [1-3], birth [2-3]
+    a, b, c, d = 1, 3, 2, 3  # survival, birth
     
     for position in positions:
         env = get_env(position, weights_, positions)
@@ -128,7 +125,6 @@ def get_env(pos, weights, positions):
     return env
 
 def get_grid_index(mouse_x, mouse_y):
-    """Returns which of the 9 grids (grid_row, grid_col) the mouse is in, or None if in separator"""
     for grid_row in range(GRID_COUNT):
         for grid_col in range(GRID_COUNT):
             offset_x = SEPARATOR_WIDTH + grid_col * (GAME_SIZE + SEPARATOR_WIDTH)
@@ -158,7 +154,7 @@ def main():
     
     # create 9 independent grids with weights
     grids = [[set() for _ in range(GRID_COUNT)] for _ in range(GRID_COUNT)]
-    weights_ = [[random.randint(-1, 2) for _ in range(8)] for _ in range(9)]
+    weights_ = [[random.randint(-3, 4) for _ in range(8)] for _ in range(9)]
     
     # initialize each grid with random cells and weights
     for row in range(GRID_COUNT):
@@ -181,6 +177,7 @@ def main():
             slot_list = []
             ranked = sorted(range(9), key=lambda i: scores[i], reverse=True)
             slot_list.extend([ranked[0]] * 3)
+            print(weights_[ranked[0]])
             slot_list.extend([ranked[1]] * 2)
             slot_list.extend([ranked[2]] * 2)
             slot_list.extend([ranked[3]] * 1)
@@ -192,13 +189,13 @@ def main():
                 new_weights.append(weights_[slot_id].copy())
             weights_ = new_weights
             
-            # mutation (1-4 times)
+            # mutation 
             for i in range(random.randint(1, 5)):
                 mutating_game = random.randint(0, 8) 
     
-                for j in range(random.randint(1, 3)):  
+                for j in range(random.randint(1, 4)):  
                     weight_index = random.randint(0, 7)  
-                    weights_[mutating_game][weight_index] = random.randint(-1, 2)  
+                    weights_[mutating_game][weight_index] += random.choice([-1, 1])
                 
             # initialize next generation
             for row in range(GRID_COUNT):
