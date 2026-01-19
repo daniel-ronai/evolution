@@ -59,28 +59,6 @@ def get_neighbors(pos):
             neighbors.append((x + dx, y + dy))
             
     return neighbors
-    
-def adjust_grid(positions):
-    all_neighbors = set()
-    new_positions = set()
-    
-    for position in positions:
-        neighbors = get_neighbors(position)
-        all_neighbors.update(neighbors)
-        
-        neighbors = list(filter(lambda x: x in positions, neighbors))
-        
-        if len(neighbors) in [2, 3]:
-            new_positions.add(position)
-            
-    for position in all_neighbors:
-        neighbors = get_neighbors(position)
-        neighbors = list(filter(lambda x: x in positions, neighbors))
-        
-        if len(neighbors) == 3:
-            new_positions.add(position)
-
-    return new_positions
 
 def next_gen(positions, weights_):
     new_positions = set()
@@ -142,7 +120,49 @@ def get_grid_index(mouse_x, mouse_y):
     return None
 
 def score(positions):
-    return len(positions)
+    if len(positions) == 0:
+        return 0
+    
+    # center of mass
+    total_x = sum(x for x, y in positions)
+    total_y = sum(y for x, y in positions)
+    center_x = total_x / len(positions)
+    center_y = total_y / len(positions)
+    
+    # distance
+    distances = []
+    for x, y in positions:
+        dist = ((x - center_x) ** 2 + (y - center_y) ** 2) ** 0.5
+        distances.append(dist)
+    
+    if len(distances) == 0:
+        return 0
+    
+    # radius
+    avg_distance = sum(distances) / len(distances)
+    
+    # standard deviation
+    # lower std_dev the more circular
+    if avg_distance == 0:
+        return 0
+    
+    variance = sum((d - avg_distance) ** 2 for d in distances) / len(distances)
+    std_dev = variance ** 0.5
+    
+    # calculate circularity score
+    # coefficient of variation = relative spread
+    if avg_distance > 0:
+        coefficient_of_variation = std_dev / avg_distance
+    else:
+        coefficient_of_variation = float('inf')
+    
+    # score
+    size_score = len(positions)
+    circularity_score = 1.0 / (1.0 + coefficient_of_variation)
+    
+    final_score = size_score + circularity_score * 100
+    
+    return final_score
 
 def main():
     running = True
